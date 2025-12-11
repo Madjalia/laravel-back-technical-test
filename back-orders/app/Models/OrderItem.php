@@ -17,6 +17,7 @@ class OrderItem extends Model
         'quantity',
         'unit_price',
         'subtotal',
+        'product_img',
     ];
     // Un produit appartient à une commande
     public function order()

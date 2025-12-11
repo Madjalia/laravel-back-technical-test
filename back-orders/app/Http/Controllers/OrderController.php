@@ -22,40 +22,55 @@ class OrderController extends Controller
         $order->load('items');
         return response()->json($order);
     }
-    // Créer une commande 
-    public function store(Request $request)
-    {
-        $validatedData = $request->validate([
-            'customer_name' => 'required|string',
-    'customer_phone' => [
-        'required',
-        'digits:10',   //  exatement 10 chiffres (numero ivoirien)
-        'numeric'
-    ], 
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|integer',
-            'items.*.product_name' => 'required|string',
-            'items.*.unit' => 'required|string',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.unit_price' => 'required|integer|min:0',
-        ]);
+// Créer une commande 
+public function store(Request $request)
+{
+    $validatedData = $request->validate([
+        'customer_name' => 'required|string',
+        'customer_phone' => [
+            'required',
+            'digits:10',
+            'numeric'
+        ],
+        'items' => 'required|array|min:1',
+        'items.*.product_id' => 'required|integer',
+        'items.*.product_name' => 'required|string',
+        'items.*.unit' => 'required|string',
+        'items.*.quantity' => 'required|integer|min:1',
+        'items.*.unit_price' => 'required|integer|min:0',
+        'items.*.product_img' => 'required|string|max:500',
+    ]);
 
-        $order = Order::create([
-            'customer_name' => $validatedData['customer_name'],
-            'customer_phone' => $validatedData['customer_phone'],
-            'total' => $request->total,
-        ]);
-
-        // Les items de la commande
-        foreach ($request->items as $item) {
-            $order->items()->create($item);
-        }
-
-        return response()->json([
-            'message' => 'commande créée avec succès',
-            'order' => $order->load('items'),
-        ], 201);
+    // Calculer le total
+    $total = 0;
+    foreach ($request->items as $item) {
+        $total += ($item['quantity'] * $item['unit_price']);
     }
+
+    $order = Order::create([
+        'customer_name' => $validatedData['customer_name'],
+        'customer_phone' => $validatedData['customer_phone'],
+        'total' => $total, 
+    ]);
+
+    // Créer items avec subtotal calculé
+    foreach ($request->items as $item) {
+        $order->items()->create([
+            'product_id' => $item['product_id'],
+            'product_name' => $item['product_name'],
+            'unit' => $item['unit'],
+            'quantity' => $item['quantity'],
+            'unit_price' => $item['unit_price'],
+            'subtotal' => $item['quantity'] * $item['unit_price'],
+            'product_img' => $item['product_img'],
+        ]);
+    }
+
+    return response()->json([
+        'message' => 'Commande créée avec succès',
+        'order' => $order->load('items'),
+    ], 201);
+}
 
 // Modification d'une commande
     public function update(Request $request, Order $order)
@@ -73,6 +88,7 @@ class OrderController extends Controller
             'items.*.quantity' => 'required_with:items|integer',
             'items.*.unit_price' => 'required_with:items|integer',
             'items.*.subtotal' => 'required_with:items|integer',
+            'items.*.product_img' => 'required_with:items|string|max:500',
         ]);
 
         // Mise à jour des champs simple
